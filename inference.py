@@ -9,6 +9,7 @@ MODEL_ID = "malaria-yolov26m"
 WEIGHTS = Path(__file__).with_name("yolov26m.pt")
 CONFIDENCE_THRESHOLD = 0.25
 MAX_DETECTIONS = 50
+IMAGE_SIZE = 1280
 
 model = YOLO(WEIGHTS)
 model_lock = Lock()
@@ -18,6 +19,7 @@ def predict(image):
     with model_lock:
         results = model.predict(
             source=image,
+            imgsz=IMAGE_SIZE,
             conf=CONFIDENCE_THRESHOLD,
             max_det=MAX_DETECTIONS,
             device="cpu",

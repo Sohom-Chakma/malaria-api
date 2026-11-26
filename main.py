@@ -1,11 +1,12 @@
-from ultralytics import YOLO
-import cv2
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-import io
-import os
-import uuid
+import logging
 from io import BytesIO
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from PIL import Image
+from ultralytics import YOLO
+from inference import (
+model, predict, MODEL_ID, IMAGE_SIZE,
+CONFIDENCE, MAX_DETECTIONS
+)
 
 app = FastAPI(title="YOLOv26m Malaria Detection API", version="1.0.0")
 
