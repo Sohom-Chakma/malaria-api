@@ -6,7 +6,7 @@ from PIL import Image
 from ultralytics import YOLO
 
 MODEL_ID = "malaria-yolov26m"
-WEIGHTS = Path(__file__).with_name("yolo_model.pt")
+WEIGHTS = Path(__file__).with_name("yolov26m.pt")
 CONFIDENCE_THRESHOLD = 0.25
 MAX_DETECTIONS = 50
 
@@ -24,22 +24,29 @@ def predict(image):
         )[0]
 
     detections = []
-    for box in results.boxes:
+    for detection_id, box in enumerate(results.boxes, start=1):
         class_id = int(box.cls.item())
+        x1, y1, x2, y2 = box.xyxy[0].tolist()
         detections.append({
-            "class_id" : class_id,
-            "class_name" : results.names[class_id],
-            "confidence" : float(box.conf.item()),
-            "bbox" : box.xyxy[0].tolist()
-        })
-
-        height, width = results.orig_shape
-        return {
-            "image_size": {"height": height, "width": width},
-            "detection_count": len( detections ),
-            "detections": detections,
-            "processing_ms": round( ( perf_counter() - start)  * 1000, 2 )
+            "detection_id": detection_id,
+            "class_id": class_id,
+            "class_name": results.names[class_id],
+            "confidence": float(box.conf.item()),
+            "bbox": {
+            "x1": x1,
+            "y1": y1,
+            "x2": x2,
+            "y2": y2
         }
+    })
+
+    height, width = results.orig_shape
+    return {
+        "image_size": {"height": height, "width": width},
+        "detection_count": len( detections ),
+        "detections": detections,
+        "processing_ms": round( ( perf_counter() - start)  * 1000, 2 )
+    }
 
 if __name__ == "__main__":
     import json
