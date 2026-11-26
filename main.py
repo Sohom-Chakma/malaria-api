@@ -2,32 +2,43 @@ import logging
 from io import BytesIO
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
-from ultralytics import YOLO
+from typing import Annotated
+from pydantic import WithJsonSchema
 from inference import (
 model, predict, MODEL_ID, IMAGE_SIZE,
-CONFIDENCE, MAX_DETECTIONS
+CONFIDENCE_THRESHOLD, MAX_DETECTIONS
 )
 
 app = FastAPI(title="YOLOv26m Malaria Detection API", version="1.0.0")
 log = logging.getLogger("uvicorn.error")
-FORMAT = {"JPEG", "JPG", "PNG","TIFF"}
+FORMAT = {"JPEG", "PNG", "TIFF"}
+
+BinaryUploadFile = Annotated[
+    UploadFile,
+    WithJsonSchema({"type": "string", "format": "binary"})
+]
 
 @app.get("/models")
 def models():
     return {"models": [{
         "model_id": MODEL_ID,
         "imgsz": IMAGE_SIZE,
-        "confidence_threshold": CONFIDENCE,
+        "confidence_threshold": CONFIDENCE_THRESHOLD,
         "max_detections": MAX_DETECTIONS,
         "classes": model.names,
         "device": "cpu",
     }]}
 
 def decode(file):
-    raw = file.read()
+    raw = file.file.read()
+
     with Image.open(BytesIO(raw)) as image:
         if image.format not in FORMAT:
-            raise HTTPException(status_code=400, detail=f"Unsupported image format. Use JPEG, JPG, PNG, or TIFF: {image.format}")
+            raise ValueError(
+                f"Unsupported image format: {image.format}"
+            )
+
+        return image.convert("RGB")
 
 def error_item(item, code, message):
     return { 
@@ -40,7 +51,7 @@ def error_item(item, code, message):
             }
 
 @app.post("/predict")
-def predict_images(files: list[UploadFile] = File(...)):
+def predict_images(files: list[BinaryUploadFile] = File(...)):
 
     results = []
     
@@ -48,14 +59,15 @@ def predict_images(files: list[UploadFile] = File(...)):
         item = {"index": index, "filename": file.filename}
         try:
             image = decode(file)
-        except (ValueError, OSError, SyntaxError):
-            results.append(error_item(item, "invalid_image", "Unsupported or invalidimage format."))
+        except (ValueError, OSError, SyntaxError, Image.DecompressionBombError):
+            results.append(error_item(item, "invalid_image", "Unsupported or invalid image format."))
             continue
 
         try:
             with image:
                 output = predict(image)
                 results.append({**item, "status": "ok", "output": output})
+                
         except Exception:
             log.exception("Inference failed for item %d", index)
             results.append(error_item(item, "inference_failed", "Inference failed for this image."
