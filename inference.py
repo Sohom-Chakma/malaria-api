@@ -5,6 +5,9 @@ from time import perf_counter
 from PIL import Image
 from ultralytics import YOLO
 
+import base64
+from io import BytesIO
+
 MODEL_ID = "malaria-yolov26m"
 CONFIDENCE_THRESHOLD = 0.25
 MAX_DETECTIONS = 50
@@ -13,7 +16,7 @@ IMAGE_SIZE = 1280
 model = YOLO(Path(__file__).with_name("yolov26m.pt"))
 model_lock = Lock()
 
-def predict(image):
+def predict(image, return_image=False):
     start = perf_counter()
     with model_lock:
         results = model.predict(
